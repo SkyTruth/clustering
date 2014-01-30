@@ -193,13 +193,24 @@ def find_range(prefix, lst):
 
     return (lower, upper)
 
+def minmaxdistsqr(hash1, hash2):
+    """Calculates the square of the mindist and maxdist between two geohashes.
+    Note: Treats lat/lon as cartesian."""
+    hash1 = geohash.bbox(hash1)
+    hash2 = geohash.bbox(hash2)
+    distx = (abs(hash1['e'] - hash2['w']), abs(hash1['w'] - hash2['e']), abs(hash1['e'] - hash2['e']), abs(hash1['w'] - hash2['w']))
+    disty = (abs(hash1['n'] - hash2['s']), abs(hash1['s'] - hash2['n']), abs(hash1['n'] - hash2['n']), abs(hash1['s'] - hash2['s']))
+    print distx
+    print disty
 
+    mindist = min(*distx)**2 + min(*disty)**2
+    maxdist = max(*distx)**2 + max(*disty)**2
+
+    return mindist, maxdist
 
 # geohash.bbox('0m1g52jnur27')
 # {'s': -61.34645814076066, 'e': -166.1391907185316, 'w': -166.13919105380774, 'n': -61.3464579731226}
 
-def get_nrpoints(prefix):
-    pass
 
 def build_locality(q, S):
     pass
