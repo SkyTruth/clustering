@@ -29,7 +29,7 @@ import sys
 
 def loaddata(filename, maxlines=None):
     lines = -1
-    with open("viirs_full_data.csv") as f:
+    with open(filename) as f:
          for l in f:
              lines += 1
              if maxlines is not None and lines >= maxlines: break
