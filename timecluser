@@ -1,0 +1,182 @@
+#! /usr/bin/env python
+
+import csv
+import sys
+import math
+import operator
+
+args = {
+    "maxdist": 60*60,
+    }
+files = []
+for arg in sys.argv[1:]:
+    if arg.startswith("--"):
+        arg = arg[2:]
+        if '=' in arg:
+            arg, value = arg.split("=", 1)
+            args[arg] = value
+        else:
+            args[arg] = True
+    else:
+        files.append(arg)
+
+class AbstractStdDev(object):
+    def get(self):
+        return math.sqrt(self.getSqr())
+    def __add__(self, other):
+        return StdDevSum(self.getSqr() + other.getSqr())
+
+class StdDevSum(AbstractStdDev):
+    def __init__(self, sqr):
+        self.sqr = sqr
+    def getSqr(self):
+        return self.sqr
+        
+class StdDev(AbstractStdDev):
+    def __init__(self):
+        self.count = 0
+        self.sum = 0
+        self.sqrsum = 0
+    def add(self, value):
+        self.count += 1
+        self.sum += value
+        self.sqrsum += value**2
+    def getSqr(self):
+        if self.count == 0:
+            return 0
+        a = self.sqrsum/self.count
+        b = (self.sum/self.count)**2
+        # Handle rounding errors
+        if a < b:
+            assert b - a < 1e10-10
+            return 0.0
+        return a - b
+
+class Avg(object):
+    def __init__(self):
+        self.count = 0
+        self.sum = 0
+    def add(self, value):
+        self.count += 1
+        self.sum += value
+    def get(self):
+        return self.sum/self.count
+
+class Sum(object):
+    def __init__(self):
+        self.sum = 0
+    def add(self, value):
+        self.sum += value
+    def get(self):
+        return self.sum
+
+class Count(object):
+    def __init__(self):
+        self.count = 0
+    def add(self, value):
+        self.count += 1
+    def get(self):
+        return self.count
+
+class First(object):
+    def __init__(self):
+        self.value = None
+    def add(self, value):
+        if self.value is None:
+            self.value = value
+    def get(self):
+        return self.value
+
+class Last(object):
+    def __init__(self):
+        self.value = None
+    def add(self, value):
+        self.value = value
+    def get(self):
+        return self.value
+
+def floatify(row):
+    for key in row:
+        if key in ('mmsi',): continue
+        try:
+            row[key] = float(row[key])
+        except ValueError:
+            pass
+
+class Stat(object):
+    def __init__(self, source, cls):
+        self.source = source
+        self.value = cls()
+    def add(self, value):
+        self.value.add(value[self.source])
+    def get(self):
+        return self.value.get()
+
+class StatSum(object):
+    def __init__(self, *stats):
+        self.stats = stats
+    def add(self, value):
+        for stat in self.stats:
+            stat.add(value)
+    def get(self):
+        return reduce(operator.add, [stat.value for stat in self.stats]).get()
+
+class Stats(object):
+    def __init__(self):
+        self.fieldmap = {
+            "mmsi": Stat("mmsi", First),
+            "longitude": Stat("longitude", Avg),
+            "latitude": Stat("latitude", Avg),
+            "timestamp": Stat("timestamp", Avg),
+            "start": Stat("timestamp", First),
+            "end": Stat("timestamp", Last),
+            "score": Stat("score", Avg),
+            "cog": Stat("cog", Avg),
+            "sog": Stat("sog", Avg),
+            "sigma": StatSum(Stat("latitude", StdDev),
+                             Stat("longitude", StdDev)),
+            "weight": Stat("score", Sum),
+            "count": Stat("score", Count)
+            }
+    def add(self, value):
+        for field in self.fieldmap.itervalues():
+            field.add(value)
+    def get(self):
+        return {
+            key: value.get()
+            for (key, value)
+            in self.fieldmap.iteritems()}
+
+try:
+    with open(files[0]) as infile:
+        infile = csv.DictReader(infile)
+        with open(files[1], "w") as outfile:
+
+            stats = Stats()
+
+            outfile = csv.DictWriter(outfile, stats.fieldmap.keys(), 'ignore')
+            outfile.writeheader()
+
+            def writeCluster():
+                global stats
+                outfile.writerow(stats.get())
+                stats = Stats()
+
+            last_row = None
+            for row in infile:
+                floatify(row)
+                new_cluster = not last_row or (row['mmsi'] != last_row['mmsi'] or abs(row['timestamp'] - last_row['timestamp']) >= args['maxdist'])
+
+                if new_cluster and last_row:
+                    writeCluster()
+                stats.add(row)
+
+                last_row = row
+
+            if last_row:
+                writeCluster()
+except:
+    import pdb
+    import sys
+    sys.last_traceback = sys.exc_info()[2]
+    pdb.pm()
