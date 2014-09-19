@@ -1,4 +1,4 @@
-#!/srv/django/bin/python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # vim: set fileencoding=utf-8 :
 # SETUPTOOLS_DO_NOT_WRAP
