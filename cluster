@@ -28,6 +28,16 @@ import csv
 import sys
 import argparse
 
+
+def floatify(row):
+    res = {}
+    for key in row:
+        try:
+            res[key] = float(row[key])
+        except ValueError:
+            pass
+    return res
+
 def loaddata(filename, maxlines=None):
     lines = -1
     with open(filename) as f:
@@ -35,13 +45,24 @@ def loaddata(filename, maxlines=None):
              lines += 1
              if maxlines is not None and lines >= maxlines: break
 
-    X = numpy.zeros((lines, 2))
     with open(filename) as f:
-        for idx, row in enumerate(csv.DictReader(f)):
+        rows = csv.DictReader(f)
+
+        X = numpy.zeros((lines, len(rows.fieldnames)))
+
+        latlng = ['longitude', 'latitude']
+        fieldnames = latlng + [name for name in rows.fieldnames
+                               if name not in latlng]
+
+        for idx, row in enumerate(rows):
             if idx >= lines: break
-            X[idx][0] = float(row['longitude'])
-            X[idx][1] = float(row['latitude'])
-    return X
+
+            for fieldidx, name in enumerate(fieldnames):
+                try:
+                    X[idx][fieldidx] = float(row[name])
+                except ValueError:
+                    X[idx][fieldidx] = float("nan")
+    return fieldnames, X
 
 
 parser = argparse.ArgumentParser(description='Process some integers.')
@@ -54,12 +75,17 @@ parser.add_argument('--min_samples', metavar='N', type=int, default=3,
 
 args = parser.parse_args(sys.argv[1:])
 
-X = loaddata(args.infile)
-db = sklearn.cluster.DBSCAN(eps=args.eps, min_samples=args.min_samples).fit(X)
+fieldnames, X = loaddata(args.infile)
+db = sklearn.cluster.DBSCAN(eps=args.eps, min_samples=args.min_samples).fit(X[:,0:2])
 
 with open(args.outfile, "w") as f:
     f = csv.writer(f)
-    f.writerow(["longitude", "latitude", "items"])
+
+    f.writerow([fieldname for fieldname in fieldnames]
+               + [fieldname + "_stddev" for fieldname in fieldnames]
+               + ['count'])
     for k in set(db.labels_):
         points = X[(db.labels_ == k).nonzero()]
-        f.writerow([numpy.average(points[:,0]), numpy.average(points[:,1]), points.shape[0]])
+        f.writerow([numpy.average(points[:,i]) for i in xrange(0, X.shape[1])]
+                   + [numpy.std(points[:,i]) for i in xrange(0, X.shape[1])]
+                   + [points.shape[0]])
