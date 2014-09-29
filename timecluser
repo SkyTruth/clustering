@@ -119,7 +119,7 @@ class Last(object):
 
 def floatify(row):
     for key in row:
-        if key in ('mmsi',): continue
+        if key in ('mmsi','series'): continue
         try:
             row[key] = float(row[key])
         except ValueError:
@@ -147,6 +147,7 @@ class Stats(object):
     def __init__(self):
         self.fieldmap = {
             "mmsi": Stat("mmsi", First),
+            "series": Stat("series", First),
             "longitude": Stat("longitude", Avg),
             "latitude": Stat("latitude", Avg),
             "timestamp": Stat("timestamp", Avg),

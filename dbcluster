@@ -1,0 +1,131 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 :
+# SETUPTOOLS_DO_NOT_WRAP
+
+# cluster rows.csv clusters.csv
+#
+#  - Copyright (C) 2014 SkyTruth
+#    Author: Egil Moeller <egil@skytruth.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+import numpy
+import sklearn.cluster
+import csv
+import sys
+import argparse
+import math
+
+def floatify(row):
+    res = {}
+    for key in row:
+        try:
+            res[key] = float(row[key])
+        except ValueError:
+            pass
+    return res
+
+def loaddata(filename, maxlines=None):
+    lines = -1
+    with open(filename) as f:
+         for l in f:
+             lines += 1
+             if maxlines is not None and lines >= maxlines: break
+
+    with open(filename) as f:
+        rows = csv.DictReader(f)
+
+        X = numpy.zeros((lines, len(rows.fieldnames)))
+
+        latlng = ['longitude', 'latitude']
+        fieldnames = latlng + [name for name in rows.fieldnames
+                               if name not in latlng]
+
+        for idx, row in enumerate(rows):
+            if idx >= lines: break
+
+            for fieldidx, name in enumerate(fieldnames):
+                try:
+                    X[idx][fieldidx] = float(row[name])
+                except ValueError:
+                    X[idx][fieldidx] = float("nan")
+    return fieldnames, X
+
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('infile', metavar='FILE.csv', type=str, help='Input file')
+parser.add_argument('outfile', metavar='FILE.csv', type=str, help='Output file')
+parser.add_argument('--eps', metavar='N', type=float, default=0.013498916666666666,
+                   help='eps')
+parser.add_argument('--min_samples', metavar='N', type=int, default=3,
+                   help='min_samples')
+
+args = parser.parse_args(sys.argv[1:])
+
+fieldnames, X = loaddata(args.infile)
+db = sklearn.cluster.DBSCAN(eps=args.eps, min_samples=args.min_samples).fit(X[:,0:2])
+
+
+            "series": Stat("series", First),
+            "longitude": Stat("longitude", Avg),
+            "latitude": Stat("latitude", Avg),
+            "timestamp": Stat("timestamp", Avg),
+
+            "start": Stat("timestamp", First),
+            "end": Stat("timestamp", Last),
+            "score": Stat("score", Avg),
+            "cog": Stat("cog", Avg),
+            "sog": Stat("sog", Avg),
+            "sigma": StatSum(Stat("latitude", StdDev),
+                             Stat("longitude", StdDev)),
+            "weight": Stat("score", Sum),
+            "count": Stat("score", Count)
+
+with open(args.outfile, "w") as f:
+    f = csv.writer(f)
+
+    f.writerow([
+            "series"
+            "longitude"
+            "latitude",
+            "timestamp",
+            "start",
+            "end",
+            "score",
+            "cog",
+            "sog",
+            "sigma",
+            "weight",
+            "count"
+            ])
+
+    for k in set(db.labels_):
+        points = X[(db.labels_ == k).nonzero()]
+        f.writerow([
+                points[0,fieldnames.index("series")],
+                numpy.avg(points[:,fieldnames.index("longitude")]),
+                numpy.avg(points[:,fieldnames.index("latitude")]),
+                numpy.avg(points[:,fieldnames.index("timestamp")]),
+                numpy.min(points[:,fieldnames.index("timestamp")]),
+                numpy.max(points[:,fieldnames.index("timestamp")]),
+                numpy.avg(points[:,fieldnames.index("score")]),
+                numpy.avg(points[:,fieldnames.index("cog")]),
+                numpy.avg(points[:,fieldnames.index("sog")]),
+                math.sqrt(  numpy.std(points[:,fieldnames.index("longitude")])**2
+                          + numpy.std(points[:,fieldnames.index("latitude")])**2),
+                numpy.sum(points[:,fieldnames.index("score")]),
+                points.shape[0]
+            ])
