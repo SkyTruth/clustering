@@ -78,28 +78,12 @@ args = parser.parse_args(sys.argv[1:])
 fieldnames, X = loaddata(args.infile)
 db = sklearn.cluster.DBSCAN(eps=args.eps, min_samples=args.min_samples).fit(X[:,0:2])
 
-
-            "series": Stat("series", First),
-            "longitude": Stat("longitude", Avg),
-            "latitude": Stat("latitude", Avg),
-            "timestamp": Stat("timestamp", Avg),
-
-            "start": Stat("timestamp", First),
-            "end": Stat("timestamp", Last),
-            "score": Stat("score", Avg),
-            "cog": Stat("cog", Avg),
-            "sog": Stat("sog", Avg),
-            "sigma": StatSum(Stat("latitude", StdDev),
-                             Stat("longitude", StdDev)),
-            "weight": Stat("score", Sum),
-            "count": Stat("score", Count)
-
 with open(args.outfile, "w") as f:
     f = csv.writer(f)
 
     f.writerow([
-            "series"
-            "longitude"
+            "series",
+            "longitude",
             "latitude",
             "timestamp",
             "start",
@@ -116,14 +100,14 @@ with open(args.outfile, "w") as f:
         points = X[(db.labels_ == k).nonzero()]
         f.writerow([
                 points[0,fieldnames.index("series")],
-                numpy.avg(points[:,fieldnames.index("longitude")]),
-                numpy.avg(points[:,fieldnames.index("latitude")]),
-                numpy.avg(points[:,fieldnames.index("timestamp")]),
+                numpy.mean(points[:,fieldnames.index("longitude")]),
+                numpy.mean(points[:,fieldnames.index("latitude")]),
+                numpy.mean(points[:,fieldnames.index("timestamp")]),
                 numpy.min(points[:,fieldnames.index("timestamp")]),
                 numpy.max(points[:,fieldnames.index("timestamp")]),
-                numpy.avg(points[:,fieldnames.index("score")]),
-                numpy.avg(points[:,fieldnames.index("cog")]),
-                numpy.avg(points[:,fieldnames.index("sog")]),
+                numpy.mean(points[:,fieldnames.index("score")]),
+                numpy.mean(points[:,fieldnames.index("cog")]),
+                numpy.mean(points[:,fieldnames.index("sog")]),
                 math.sqrt(  numpy.std(points[:,fieldnames.index("longitude")])**2
                           + numpy.std(points[:,fieldnames.index("latitude")])**2),
                 numpy.sum(points[:,fieldnames.index("score")]),
