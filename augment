@@ -12,5 +12,5 @@ with open(sys.argv[1]) as infile:
         outfile.writeheader()
         for row in infile:
             row['weight'] = row['score']
-            row['sigma'] = '1.0'
+            row['sigma'] = '0.0'
             outfile.writerow(row)
